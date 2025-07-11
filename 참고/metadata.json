@@ -1,0 +1,6 @@
+{
+  "name": "Thinking Space",
+  "description": "Search a custom set of images using natural language.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
