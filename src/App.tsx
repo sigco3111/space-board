@@ -1,122 +1,98 @@
 /**
- * App 컴포넌트
- * 애플리케이션의 메인 컴포넌트로, 로그인 및 게시물 목록 표시 기능 제공
+ * 메인 App 컴포넌트
  */
 import React, { useEffect, useState } from 'react';
 import './App.css';
-import { auth } from './services/firebase';
-import { getAllPosts } from './services/postService';
-import { Post } from './services/postService';
-import LoginForm from './components/auth/LoginForm';
-import PostList from './components/board/PostList';
-import initFirestore from './services/initDb';
-import { UserData, signInWithGoogle, signInAsAnonymous } from './services/auth';
+import { usePostStore, useLayoutStore } from './store';
+import VisualizationCanvas from './components/Visualization/VisualizationCanvas';
+import Sidebar from './components/common/Sidebar';
+import LayoutControls from './components/common/LayoutControls';
+import SearchBar from './components/common/SearchBar';
 
-function App() {
-  const [user, setUser] = useState<any>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+/**
+ * App 컴포넌트
+ */
+const App: React.FC = () => {
+  // 스토어에서 필요한 상태 및 액션 가져오기
+  const loadPosts = usePostStore.use.loadPosts();
+  const calculateNodePositions = useLayoutStore.use.calculateNodePositions();
+  const posts = usePostStore.use.posts();
   
-  // Firebase 인증 상태 변화 감지
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        const userData: UserData = {
-          uid: user.uid,
-          displayName: user.displayName || '사용자',
-          email: user.email,
-          photoURL: user.photoURL,
-          isAnonymous: user.isAnonymous || false
-        };
-        setUser(userData);
-      } else {
-        setUser(null);
-      }
-      console.log('인증 상태 변경:', user ? '로그인됨' : '로그인되지 않음');
-    });
-    
-    return () => unsubscribe();
-  }, []);
+  // 사이드바 상태 관리
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // 게시물 데이터 로드
+  // 모바일 화면 여부 확인
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
+  // 초기 데이터 로드
   useEffect(() => {
-    const loadPosts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Firestore 초기화 (샘플 데이터 추가)
-        try {
-          await initFirestore();
-          console.log('Firestore 초기화 완료');
-        } catch (initError) {
-          console.warn('Firestore 초기화 중 오류 발생 (무시하고 계속 진행):', initError);
-        }
-        
-        // 게시물 불러오기
-        console.time('게시물 로딩');
-        const postsData = await getAllPosts();
-        console.timeEnd('게시물 로딩');
-        console.log(`게시물 ${postsData.length}개 로드 완료`);
-        setPosts(postsData);
-      } catch (error) {
-        console.error('게시물 로드 중 오류 발생:', error);
-        setError('게시물을 불러오는데 실패했습니다.');
-      } finally {
-        setLoading(false);
+    loadPosts();
+  }, [loadPosts]);
+  
+  // 게시물 로드 후 노드 위치 계산
+  useEffect(() => {
+    if (posts.length > 0) {
+      calculateNodePositions(posts.map(post => post.id));
+    }
+  }, [posts, calculateNodePositions]);
+  
+  // 화면 크기 변경 감지
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      
+      // 데스크톱으로 전환 시 사이드바 자동으로 열기
+      if (window.innerWidth > 768) {
+        setIsSidebarOpen(true);
       }
     };
     
-    loadPosts();
+    // 초기 설정 - 데스크톱에서는 사이드바 기본 열림
+    if (window.innerWidth > 768) {
+      setIsSidebarOpen(true);
+    }
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // 게시물 클릭 핸들러
-  const handlePostClick = (post: Post) => {
-    console.log('게시물 클릭:', post.id, post.title);
-    // 여기에 게시물 클릭 시 동작 구현
+  // 사이드바 토글 핸들러
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
   };
-  
-  // 로그인 성공 핸들러
-  const handleLoginSuccess = (userData: UserData) => {
-    console.log('로그인 성공:', userData);
-    setUser(userData);
-    setError(null);
-  };
-  
-  // 로그인 실패 핸들러
-  const handleLoginError = (errorMessage: string) => {
-    console.error('로그인 실패:', errorMessage);
-    setError(errorMessage);
-  };
-  
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>SPACE-BOARD</h1>
-        {user ? (
-          <div className="user-info">
-            <p>안녕하세요, {user.displayName}님!</p>
-          </div>
-        ) : (
-          <LoginForm 
-            onLoginSuccess={handleLoginSuccess}
-            onLoginError={handleLoginError}
-          />
-        )}
-      </header>
+    <div className="app">
+      <VisualizationCanvas />
+      <SearchBar />
+      <LayoutControls />
+      <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <h2 className="sidebar-title">Space Board</h2>
+          {isMobile && (
+            <button 
+              className="sidebar-toggle" 
+              onClick={toggleSidebar}
+              aria-label="사이드바 닫기"
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          )}
+        </div>
+        <Sidebar />
+      </div>
       
-      <main className="App-main">
-        <h2>게시물 목록</h2>
-        <PostList 
-          posts={posts}
-          onPostClick={handlePostClick}
-          isLoading={loading}
-          error={error}
-        />
-      </main>
+      {isMobile && (
+        <button 
+          className="mobile-menu-button"
+          onClick={toggleSidebar}
+          aria-label="메뉴 열기"
+        >
+          <i className={`fas ${isSidebarOpen ? 'fa-times' : 'fa-bars'}`}></i>
+        </button>
+      )}
     </div>
   );
-}
+};
 
 export default App; 

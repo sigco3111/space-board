@@ -8,7 +8,8 @@ import {
   signInAnonymously, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  User
+  User,
+  AuthError
 } from 'firebase/auth';
 import { auth } from './firebase';
 import { doc, setDoc, getFirestore } from 'firebase/firestore';
@@ -20,6 +21,18 @@ export interface UserData {
   email: string | null;
   photoURL: string | null;
   isAnonymous: boolean;
+}
+
+/**
+ * Firebase 인증 에러 타입 가드
+ */
+function isFirebaseAuthError(error: unknown): error is AuthError {
+  return (
+    typeof error === 'object' && 
+    error !== null && 
+    'code' in error && 
+    typeof (error as any).code === 'string'
+  );
 }
 
 /**
@@ -56,14 +69,17 @@ export const signInWithGoogle = async (): Promise<UserData> => {
   } catch (error) {
     console.error('구글 로그인 중 오류 발생:', error);
     
-    // 사용자가 로그인을 취소한 경우 다른 오류 메시지 표시
-    if (error.code === 'auth/popup-closed-by-user') {
-      throw new Error('로그인이 취소되었습니다. 다시 시도해 주세요.');
-    }
-    
-    // Firebase 연결 오류인 경우 네트워크 문제 메시지 표시
-    if (error.code === 'auth/network-request-failed') {
-      throw new Error('네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해 주세요.');
+    // 오류 타입 확인
+    if (isFirebaseAuthError(error)) {
+      // 사용자가 로그인을 취소한 경우 다른 오류 메시지 표시
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('로그인이 취소되었습니다. 다시 시도해 주세요.');
+      }
+      
+      // Firebase 연결 오류인 경우 네트워크 문제 메시지 표시
+      if (error.code === 'auth/network-request-failed') {
+        throw new Error('네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해 주세요.');
+      }
     }
     
     throw new Error('구글 로그인에 실패했습니다. 다시 시도해 주세요.');
@@ -101,9 +117,12 @@ export const signInAsAnonymous = async (): Promise<UserData> => {
   } catch (error) {
     console.error('익명 로그인 중 오류 발생:', error);
     
-    // Firebase 연결 오류인 경우 네트워크 문제 메시지 표시
-    if (error.code === 'auth/network-request-failed') {
-      throw new Error('네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해 주세요.');
+    // 오류 타입 확인
+    if (isFirebaseAuthError(error)) {
+      // Firebase 연결 오류인 경우 네트워크 문제 메시지 표시
+      if (error.code === 'auth/network-request-failed') {
+        throw new Error('네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해 주세요.');
+      }
     }
     
     throw new Error('익명 로그인에 실패했습니다. 다시 시도해 주세요.');

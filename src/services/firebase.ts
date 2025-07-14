@@ -1,7 +1,7 @@
 // Firebase 설정 및 초기화
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { initializeApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 // 개발 모드 여부 확인
 const isDevelopment = import.meta.env.MODE === 'development';
@@ -50,13 +50,22 @@ const RETRY_DELAY = 1000; // 1초
  */
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Firebase 초기화 결과 인터페이스 정의
+interface FirebaseInitResult {
+  app: FirebaseApp;
+  auth: Auth;
+  db: Firestore;
+}
+
 /**
  * Firebase 초기화 함수 - 재시도 로직 포함
  */
-const initializeFirebase = async () => {
-  let app, auth, db;
+const initializeFirebase = async (): Promise<FirebaseInitResult> => {
+  let app: FirebaseApp;
+  let auth: Auth;
+  let db: Firestore;
   let retryCount = 0;
-  let lastError = null;
+  let lastError: unknown = null;
 
   while (retryCount < MAX_RETRY_COUNT) {
     try {
@@ -91,24 +100,31 @@ const initializeFirebase = async () => {
   console.error(`Firebase 초기화 최종 실패 (${MAX_RETRY_COUNT}회 시도 후):`, lastError);
   
   // 더미 객체로 대체하여 앱이 최소한 실행되게 함
-  app = { name: 'dummy-app' };
+  app = { name: 'dummy-app' } as FirebaseApp;
   auth = { 
     currentUser: null, 
     onAuthStateChanged: (callback: (user: null) => void) => { callback(null); return () => {}; }
-  };
+  } as unknown as Auth;
   db = { 
     collection: () => ({ 
       doc: () => ({ 
         get: async () => ({ exists: () => false }) 
       }) 
     }) 
-  };
+  } as unknown as Firestore;
   
   return { app, auth, db };
 };
 
-// Firebase 초기화 실행
-let app, auth, db;
+// Firebase 초기화 실행 및 객체 생성
+const dummyApp = { name: 'initializing' } as FirebaseApp;
+const dummyAuth = { currentUser: null } as unknown as Auth;
+const dummyDb = {} as unknown as Firestore;
+
+// Firebase 객체 초기값 설정
+let app: FirebaseApp = dummyApp;
+let auth: Auth = dummyAuth;
+let db: Firestore = dummyDb;
 
 // 즉시 실행 함수를 사용하여 초기화
 (async () => {
