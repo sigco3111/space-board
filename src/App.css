@@ -1,0 +1,16 @@
+/* App 컴포넌트 스타일 */
+.app-container {
+  min-height: 100vh;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.prose pre {
+  background-color: #f7f7f7;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  overflow-x: auto;
+} 
